@@ -155,10 +155,7 @@ namespace Microsoft.VisualStudio.Threading {
 				using (NoMessagePumpSyncContext.Default.Apply()) {
 					lock (this.owner.Context.SyncContextLock) {
 						if (this.queueNeedProcessEvent == null) {
-							// We pass in allowInliningWaiters: true,
-							// since we control all waiters and their continuations
-							// are be benign, and it makes it more efficient.
-							this.queueNeedProcessEvent = new AsyncManualResetEvent(allowInliningAwaiters: true);
+							this.queueNeedProcessEvent = new AsyncManualResetEvent();
 						}
 
 						return this.queueNeedProcessEvent.WaitAsync();
@@ -695,6 +692,13 @@ namespace Microsoft.VisualStudio.Threading {
 					}
 
 					tryAgainAfter = this.QueueNeedProcessEvent;
+
+					// The event can be set for an event we have processed, reset it, so we don't enter the loop immediately.
+					if (tryAgainAfter.IsCompleted) {
+						this.queueNeedProcessEvent.Reset();
+						tryAgainAfter = this.QueueNeedProcessEvent;
+					}
+
 					return false;
 				}
 			}
